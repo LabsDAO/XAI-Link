@@ -34,6 +34,8 @@ contract ModelPricingContract is ChainlinkClient {
         // Send the request
         return sendChainlinkRequestTo(oracle, request, fee);
     }
+// Add another function requestModel Score if value is null 
+
 
     // Callback function for Chainlink response
     function fulfill(bytes32 _requestId, uint256 _score) public recordChainlinkFulfillment(_requestId) {
@@ -42,6 +44,7 @@ contract ModelPricingContract is ChainlinkClient {
     }
 
     // Function to update pricing based on the model score
+    // Add Data Stream for ETH price to value in Eth
     function updatePricing(uint256 _score) internal {
         if (_score < 0.3) {
             currentPrice = tier1Price;
