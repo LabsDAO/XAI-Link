@@ -63,11 +63,11 @@ contract DataConsumerV3 {
     /**
      * Network: Sepolia
      * Aggregator: ETH/USD
-     * Address: 0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419
+     * Address: 0x72AFAECF99C9d9C8215fF44C77B94B99C28741e8
      */
     constructor() {
         dataFeed = AggregatorV3Interface(
-            0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419
+            0x72AFAECF99C9d9C8215fF44C77B94B99C28741e8
         );
     }
 
