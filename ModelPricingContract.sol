@@ -2,22 +2,28 @@
 pragma solidity ^0.8.0;
 
 import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 contract ModelPricingContract is ChainlinkClient {
     using Chainlink for Chainlink.Request;
 
-    uint256 public modelScore; // The model's performance score
+    uint256 public baselineScore;
+    uint256 public retrainedScore;
     uint256 public currentPrice; // The current price based on the model score
 
-    // Define the Chainlink parameters
+    // Chainlink Oracle parameters
     address private oracle;
     bytes32 private jobId;
     uint256 private fee;
 
     // Define pricing tiers
-    uint256 private constant tier1Price = 50; // Price for score < 0.3
-    uint256 private constant tier2Price = 100; // Price for score between 0.3 and 0.7
-    uint256 private constant tier3Price = 150; // Price for score > 0.7
+    uint256 private constant tier1Price = 50;
+    uint256 private constant tier2Price = 100;
+    uint256 private constant tier3Price = 150;
+
+    // API URLs
+    string private baselineScoreUrl = "https://e3c4-72-203-214-88.ngrok.io/baseline-score";
+    string private retrainedScoreUrl = "https://e3c4-72-203-214-88.ngrok.io/retrained-score";
 
     // Constructor to set up Chainlink
     constructor() {
@@ -27,23 +33,35 @@ contract ModelPricingContract is ChainlinkClient {
         fee = /* Chainlink Fee */;
     }
 
-    // Function to request external data via Chainlink
-    function requestModelScore() public returns (bytes32 requestId) {
-        Chainlink.Request memory request = buildChainlinkRequest(jobId, address(this), this.fulfill.selector);
-        
-        // Send the request
+    // Request Baseline Score
+    function requestBaselineScore() public returns (bytes32 requestId) {
+        Chainlink.Request memory request = buildChainlinkRequest(jobId, address(this), this.fulfillBaselineScore.selector);
+        request.add("get", baselineScoreUrl);
+        request.add("path", "data,path"); // Adjust the JSON path
         return sendChainlinkRequestTo(oracle, request, fee);
     }
-// Add another function requestModel Score if value is null 
 
-
-    // Callback function for Chainlink response
-    function fulfill(bytes32 _requestId, uint256 _score) public recordChainlinkFulfillment(_requestId) {
-        modelScore = _score;
-        updatePricing(modelScore);
+    // Request Retrained Score
+    function requestRetrainedScore() public returns (bytes32 requestId) {
+        Chainlink.Request memory request = buildChainlinkRequest(jobId, address(this), this.fulfillRetrainedScore.selector);
+        request.add("get", retrainedScoreUrl);
+        request.add("path", "data,path"); // Adjust the JSON path
+        return sendChainlinkRequestTo(oracle, request, fee);
     }
 
-    // Function to update pricing based on the model score
+    // Callback function for baseline score
+    function fulfillBaselineScore(bytes32 _requestId, uint256 _score) public recordChainlinkFulfillment(_requestId) {
+        baselineScore = _score;
+        updatePricing(baselineScore);
+    }
+
+    // Callback function for retrained score
+    function fulfillRetrainedScore(bytes32 _requestId, uint256 _score) public recordChainlinkFulfillment(_requestId) {
+        retrainedScore = _score;
+        updatePricing(retrainedScore);
+    }
+
+    // Function to update pricing
     function updatePricing(uint256 _score) internal {
         if (_score < 0.3) {
             currentPrice = tier1Price;
