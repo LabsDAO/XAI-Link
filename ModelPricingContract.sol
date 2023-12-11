@@ -1,109 +1,92 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.7;
 
 import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 
-contract ModelPricingContract is ChainlinkClient {
+/**
+ * Request testnet LINK and ETH here: https://faucets.chain.link/
+ * Find information on LINK Token Contracts and get the latest ETH and LINK faucets here: https://docs.chain.link/docs/link-token-contracts/
+ */
+
+/**
+ * THIS IS AN EXAMPLE CONTRACT THAT USES HARDCODED VALUES FOR CLARITY.
+ * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
+ * DO NOT USE THIS CODE IN PRODUCTION.
+ */
+
+contract ModelAccuracyPricing is ChainlinkClient, ConfirmedOwner {
     using Chainlink for Chainlink.Request;
 
-    uint256 public baselineScore;
-    uint256 public retrainedScore;
-    uint256 public currentPrice; // The current price based on the model score
+    uint256 public accuracy;
+    bytes32 private jobId;
+    uint256 private fee;
 
-    // Chainlink Oracle parameters
+    event RequestFirstId(bytes32 indexed requestId, uint256 accuracy);
 
+    /**
+     * @notice Initialize the link token and target oracle
+     *
+     * Sepolia Testnet details:
+     * Link Token: 0x779877A7B0D9E8603169DdbD7836e478b4624789
+     * Oracle: 0x6090149792dAAeE9D1D568c9f9a6F6B46AA29eFD (Chainlink DevRel)
+     * jobId: 7d80a6386ef543a3abb52817f6707e3b
+     *
+     */
     constructor() ConfirmedOwner(msg.sender) {
         setChainlinkToken(0x779877A7B0D9E8603169DdbD7836e478b4624789);
         setChainlinkOracle(0x6090149792dAAeE9D1D568c9f9a6F6B46AA29eFD);
-        jobId = "7da2702f37fd48e5b1b9a5715e3509b6";
-        fee = (1 * LINK_DIVISIBILITY) / 10;
-
-    // Define pricing tiers
-    uint256 private constant tier1Price = 50;
-    uint256 private constant tier2Price = 100;
-    uint256 private constant tier3Price = 150;
-
-    // API URLs
-    string private baselineScoreUrl = "https://e3c4-72-203-214-88.ngrok.io/baseline-score";
-    string private retrainedScoreUrl = "https://e3c4-72-203-214-88.ngrok.io/retrained-score";
-
-    // Constructor to set up Chainlink
-    constructor() {
-        setPublicChainlinkToken();
-        oracle = /* Chainlink Oracle Address */;
-        jobId = /* Chainlink Job ID */;
-        fee = /* Chainlink Fee */;
+        jobId = "ca98366cc7314957b8c012c72f05aeeb";
+        fee = (1 * LINK_DIVISIBILITY) / 10; // 0,1 * 10**18 (Varies by network and job)
     }
-
-    // Request Baseline Score
-    function requestBaselineScore() public returns (bytes32 requestId) {
-        Chainlink.Request memory request = buildChainlinkRequest(jobId, address(this), this.fulfillBaselineScore.selector);
-        request.add("get", baselineScoreUrl);
-        request.add("path", "data,path"); // Adjust the JSON path
-        return sendChainlinkRequestTo(oracle, request, fee);
-    }
-
-    // Request Retrained Score
-    function requestRetrainedScore() public returns (bytes32 requestId) {
-        Chainlink.Request memory request = buildChainlinkRequest(jobId, address(this), this.fulfillRetrainedScore.selector);
-        request.add("get", retrainedScoreUrl);
-        request.add("path", "data,path"); // Adjust the JSON path
-        return sendChainlinkRequestTo(oracle, request, fee);
-    }
-
-    // Callback function for baseline score
-    function fulfillBaselineScore(bytes32 _requestId, uint256 _score) public recordChainlinkFulfillment(_requestId) {
-        baselineScore = _score;
-        updatePricing(baselineScore);
-    }
-
-    // Callback function for retrained score
-    function fulfillRetrainedScore(bytes32 _requestId, uint256 _score) public recordChainlinkFulfillment(_requestId) {
-        retrainedScore = _score;
-        updatePricing(retrainedScore);
-    }
-
-    // Function to update pricing
-    function updatePricing(uint256 _score) internal {
-        if (_score < 0.3) {
-            currentPrice = tier1Price;
-        } else if (_score < 0.7) {
-            currentPrice = tier2Price;
-        } else {
-            currentPrice = tier3Price;
-        }
-    }
-
-    // Additional functions to interact with the model, handle payments, etc.
-}
-// Data Stream 
-contract DataConsumerV3 {
-    AggregatorV3Interface internal dataFeed;
 
     /**
-     * Network: Sepolia
-     * Aggregator: ETH/USD
-     * Address: 0x72AFAECF99C9d9C8215fF44C77B94B99C28741e8
+     * Create a Chainlink request to retrieve API response, find the target
+     * data which is located in a list
      */
-    constructor() {
-        dataFeed = AggregatorV3Interface(
-            0x72AFAECF99C9d9C8215fF44C77B94B99C28741e8
+    function requestFirstId() public returns (bytes32 requestId) {
+        Chainlink.Request memory req = buildChainlinkRequest(
+            jobId,
+            address(this),
+            this.fulfill.selector
         );
+
+        // Set the URL to perform the GET request on
+        // API docs: https://www.coingecko.com/en/api/documentation?
+        req.add(
+            "get",
+            "https://25cc-3-235-192-234.ngrok-free.app/api/metadata"
+        );
+
+        req.add("path", "runs,0,metrics,acc"); // Chainlink nodes 1.0.0 and later support this format
+
+        // Multiply the result by 100 to account for two decimal places (if necessary)
+        int256 timesAmount = 10 ** 2; // Adjust based on the accuracy's decimal places
+        req.addInt("times", timesAmount);
+        // Sends the request
+        return sendChainlinkRequest(req, fee);
     }
 
     /**
-     * Returns the latest answer.
+     * Receive the response in the form of string
      */
-    function getChainlinkDataFeedLatestAnswer() public view returns (int) {
-        // prettier-ignore
-        (
-            /* uint80 roundID */,
-            int answer,
-            /*uint startedAt*/,
-            /*uint timeStamp*/,
-            /*uint80 answeredInRound*/
-        ) = dataFeed.latestRoundData();
-        return answer;
+ 
+    function fulfill(
+            bytes32 _requestId,
+            uint256 _accuracy
+        ) public recordChainlinkFulfillment(_requestId) {
+            emit RequestFirstId(_requestId, _accuracy);
+            accuracy = _accuracy; // Assuming accuracy is a state variable
+        }
+
+    /**
+     * Allow withdraw of Link tokens from the contract
+     */
+    function withdrawLink() public onlyOwner {
+        LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
+        require(
+            link.transfer(msg.sender, link.balanceOf(address(this))),
+            "Unable to transfer"
+        );
     }
 }
