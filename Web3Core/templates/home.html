@@ -1,0 +1,63 @@
+<!-- templates/home.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>xLabs DAO</title>
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Materialize CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org"></script>
+</head>
+<body>
+    <nav>
+        <div class="nav-wrapper">
+            <a href="#" class="brand-logo center">xLabs DAO</a>
+            <ul id="nav-mobile" class="left hide-on-med-and-down">
+                <li><a href="/">Home</a></li>
+                <li><a href="/products">Products</a></li>
+                <!-- More navigation items -->
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h3>Welcome to xLabs DAO</h3>
+        <!-- Add more content and components here -->
+        <!-- Login form will be added here -->
+    </div>
+    <button id="web3Login" class="btn waves-effect waves-light" type="button" name="action">
+        Login with Web3
+        <i class="material-icons right">send</i>
+    </button>
+
+    <!-- Materialize JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</body>
+</html>
+<script>
+    // Load Web3Auth
+    const web3auth = new Web3Auth.Web3Auth({
+        clientId: "YOUR_WEB3AUTH_CLIENT_ID",
+        chainConfig: {
+            chainNamespace: "eip155",
+            chainId: "0x1", // Ethereum Mainnet. Change as needed.
+            rpcTarget: "YOUR_RPC_URL",
+        },
+    });
+
+    async function login() {
+        try {
+            await web3auth.connect();
+            // Add logic to handle successful connection
+            console.log("Wallet connected");
+        } catch (error) {
+            console.error("Failed to login", error);
+        }
+    }
+
+    document.getElementById("web3Login").addEventListener("click", login);
+</script>
