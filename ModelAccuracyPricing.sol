@@ -3,7 +3,7 @@ pragma solidity ^0.8.7;
 
 import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 import "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
-
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 /**
  * Request testnet LINK and ETH here: https://faucets.chain.link/
  * Find information on LINK Token Contracts and get the latest ETH and LINK faucets here: https://docs.chain.link/docs/link-token-contracts/
@@ -19,11 +19,17 @@ contract ModelAccuracyPricing is ChainlinkClient, ConfirmedOwner {
     using Chainlink for Chainlink.Request;
 
     uint256 public accuracy;
+
+    uint256 public priceInEth;
+    uint256 public priceInUsd; 
+
+    AggregatorV3Interface internal ethUsdPriceFeed;
+
     bytes32 private jobId;
     uint256 private fee;
 
     event RequestFirstId(bytes32 indexed requestId, uint256 accuracy);
-
+    event PriceUpdated(uint256 priceInEth, uint256 priceInUsd);
     /**
      * @notice Initialize the link token and target oracle
      *
@@ -38,6 +44,11 @@ contract ModelAccuracyPricing is ChainlinkClient, ConfirmedOwner {
         setChainlinkOracle(0x6090149792dAAeE9D1D568c9f9a6F6B46AA29eFD);
         jobId = "ca98366cc7314957b8c012c72f05aeeb";
         fee = (1 * LINK_DIVISIBILITY) / 10; // 0,1 * 10**18 (Varies by network and job)
+    
+    // Initialize Chainlink ETH/USD Price Feed
+        ethUsdPriceFeed = AggregatorV3Interface(
+            0x694AA1769357215DE4FAC081bf1f309aDC325306
+        );
     }
 
     /**
@@ -77,7 +88,49 @@ contract ModelAccuracyPricing is ChainlinkClient, ConfirmedOwner {
         ) public recordChainlinkFulfillment(_requestId) {
             emit RequestFirstId(_requestId, _accuracy);
             accuracy = _accuracy; // Assuming accuracy is a state variable
+       
+        // Calculate price based on accuracy and update the price in ETH and USD
+        priceInUsd = calculatePriceInUsd(accuracy);  // Calculate and store USD price
+        priceInEth = convertUsdToEth(priceInUsd);
+        emit PriceUpdated(priceInEth, priceInUsd);
         }
+
+    function calculatePriceInUsd(uint256 _accuracy) internal pure returns (uint256) {
+                if (_accuracy <= 30) {
+                    return 50;
+                } else if (_accuracy <= 70) {
+                    return 100;
+                } else {
+                    return 150;
+                }
+            }
+
+
+    function calculatePriceInEth(uint256 _accuracy) internal view returns (uint256) {
+        uint256 modelPriceInUsd;
+        if (_accuracy <= 30) {
+            modelPriceInUsd = 50;
+        } else if (_accuracy <= 70) {
+            modelPriceInUsd = 100;
+        } else {
+            modelPriceInUsd = 150;
+        }
+
+        // Convert USD price to ETH
+        return convertUsdToEth(modelPriceInUsd);
+    }
+
+    //Function to view Model ETH price
+    function convertUsdToEth(uint256 usdAmount) internal view returns (uint256) {
+        (, int256 price, , ,) = ethUsdPriceFeed.latestRoundData();
+        uint256 ethPriceInUsd = uint256(price) / 1e8; // Adjust based on the price feed decimals
+        return (usdAmount * 1e18) / ethPriceInUsd; // Convert USD amount to ETH
+    }
+
+    // Function to view the Model USD price
+    function getPriceInUsd() public view returns (uint256) {
+        return priceInUsd;
+    }
 
     /**
      * Allow withdraw of Link tokens from the contract
