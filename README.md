@@ -1,4 +1,4 @@
-##XAI-Link
+#XAI-Link
 
 ##Inspiration
 At XAI-Link, we're driven by the potential of marrying Web3 with AI. Our project delves into the groundbreaking realm of decentralized training for Large Language Models (LLMs), revolutionizing how these models are developed and enhanced.
